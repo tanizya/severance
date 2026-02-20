@@ -298,8 +298,12 @@
 
     table.tax-table {
       width: 100%;
-      border-collapse: collapse;
+      border-collapse: separate;
+      border-spacing: 0;
       font-size: 13.5px;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid #d8e8f5;
     }
     table.tax-table th {
       background: #eaf2fb;
@@ -357,7 +361,7 @@
       display: flex;
       height: 44px;
       border-radius: 6px;
-      overflow: hidden;
+      overflow: visible;
     }
     .bar-chart .bar-net {
       background: #9ae6b4;
@@ -368,6 +372,7 @@
       font-weight: 700;
       color: #276749;
       transition: width 0.4s;
+      border-radius: 6px 0 0 6px;
     }
     .bar-chart .bar-tax {
       background: #ffc5c5;
@@ -378,6 +383,10 @@
       font-weight: 700;
       color: #c53030;
       transition: width 0.4s;
+      overflow: visible;
+      white-space: nowrap;
+      min-width: fit-content;
+      border-radius: 0 6px 6px 0;
     }
     .bar-legend {
       display: flex;
