@@ -387,15 +387,15 @@
 
     <button class="calc-btn" onclick="calculate()">計算してレポート生成</button>
     <div class="error-msg" id="errMsg"></div>
+
+    <div class="export-bar" style="margin-top: 16px;">
+      <button class="export-btn pdf" id="btnPdf" onclick="exportPDF()" disabled style="flex: 1;">📄 PDF 保存</button>
+      <button class="export-btn png" id="btnPng" onclick="exportPNG()" disabled style="flex: 1;">🖼️ PNG 保存</button>
+    </div>
   </div>
 
   <!-- ===== REPORT PANEL ===== -->
   <div class="report-panel">
-
-    <div class="export-bar">
-      <button class="export-btn pdf" id="btnPdf" onclick="exportPDF()" disabled>⬇ PDF 保存</button>
-      <button class="export-btn png" id="btnPng" onclick="exportPNG()" disabled>⬇ PNG 保存</button>
-    </div>
 
     <div id="reportWrap">
       <div class="placeholder">
@@ -617,7 +617,7 @@
       link.href = canvas.toDataURL('image/png');
       link.click();
     } finally {
-      btn.textContent = '⬇ PNG 保存';
+      btn.textContent = '🖼️ PNG 保存';
       btn.disabled = false;
     }
   }
@@ -642,7 +642,7 @@
       pdf.addImage(imgData, 'PNG', 0, 0, mmW, mmH);
       pdf.save('retirement_tax_report.pdf');
     } finally {
-      btn.textContent = '⬇ PDF 保存';
+      btn.textContent = '📄 PDF 保存';
       btn.disabled = false;
     }
   }
