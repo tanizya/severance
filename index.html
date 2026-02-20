@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>退職金 税金計算アプリ</title>
+  <title>退職金手取り計算</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
@@ -20,16 +20,15 @@
     }
 
     h1 {
-      font-size: 22px;
+      font-size: 28px;
       font-weight: 800;
       color: #1a3a5c;
-      margin-bottom: 6px;
+      margin-bottom: 24px;
       letter-spacing: 0.04em;
     }
     .app-subtitle {
       font-size: 13px;
       color: #718096;
-      margin-bottom: 28px;
     }
 
     .layout {
@@ -71,9 +70,23 @@
       color: #4a5568;
       margin-bottom: 6px;
     }
+    .input-unit {
+      position: relative;
+    }
+    .input-unit::after {
+      content: attr(data-unit);
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 13px;
+      color: #718096;
+      pointer-events: none;
+    }
     .field input[type="number"], .field input[type="text"] {
+      text-align: right;
       width: 100%;
-      padding: 10px 14px;
+      padding: 10px 36px 10px 14px;
       border: 1.5px solid #c8d8ea;
       border-radius: 8px;
       font-size: 15px;
@@ -217,7 +230,7 @@
       margin-bottom: 4px;
     }
     .report-header .rh-amount {
-      font-size: 38px;
+      font-size: 32px;
       font-weight: 800;
       letter-spacing: 0.02em;
       margin-bottom: 10px;
@@ -261,10 +274,12 @@
       border: 1px solid #d8e8f5;
       border-radius: 10px;
       padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
     }
-    .step-box .sl { font-size: 10.5px; font-weight: 700; color: #2d6a9f; margin-bottom: 6px; letter-spacing: 0.06em; }
-    .step-box .sf { font-size: 12px; color: #4a5568; line-height: 1.7; }
-    .step-box .sr { font-size: 15px; font-weight: 700; color: #1a3a5c; margin-top: 8px; text-align: right; }
+    .step-box .sl { font-size: 12.5px; font-weight: 700; color: #2d6a9f; margin-bottom: 6px; letter-spacing: 0.06em; }
+    .step-box .sf { font-size: 14px; color: #4a5568; line-height: 1.7; flex: 1; }
+    .step-box .sr { font-size: 17px; font-weight: 700; color: #1a3a5c; margin-top: 8px; text-align: right; }
 
     table.tax-table {
       width: 100%;
@@ -298,21 +313,64 @@
 
     .summary-boxes {
       display: flex;
-      gap: 14px;
+      flex-direction: column;
+      gap: 10px;
       margin-top: 20px;
     }
     .sbox {
-      flex: 1;
       border-radius: 10px;
-      padding: 16px 20px;
-      text-align: center;
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
     }
     .sbox.tax { background: #fff0f0; border: 1px solid #ffc5c5; }
     .sbox.net { background: #f0fff5; border: 1px solid #9ae6b4; }
-    .sbox .sbl { font-size: 11.5px; font-weight: 600; color: #718096; margin-bottom: 6px; }
+    .sbox .sbl { font-size: 13px; font-weight: 600; color: #718096; }
     .sbox .sba { font-size: 24px; font-weight: 800; }
     .sbox.tax .sba { color: #c53030; }
     .sbox.net .sba { color: #276749; }
+
+    .bar-chart {
+      margin-top: 16px;
+      background: #f7fafd;
+      border-radius: 10px;
+      border: 1px solid #d8e8f5;
+      padding: 16px 20px;
+    }
+    .bar-chart .bar-track {
+      display: flex;
+      height: 44px;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .bar-chart .bar-net {
+      background: #9ae6b4;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      font-weight: 700;
+      color: #276749;
+      transition: width 0.4s;
+    }
+    .bar-chart .bar-tax {
+      background: #ffc5c5;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      font-weight: 700;
+      color: #c53030;
+      transition: width 0.4s;
+    }
+    .bar-legend {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 8px;
+      font-size: 14px;
+      color: #718096;
+    }
 
     .notice-box {
       margin-top: 20px;
@@ -351,14 +409,13 @@
       .layout { flex-direction: column; }
       .input-panel { width: 100%; position: static; }
       .steps-grid { grid-template-columns: 1fr; }
-      .summary-boxes { flex-direction: column; }
+      .summary-boxes { gap: 8px; }
     }
   </style>
 </head>
 <body>
 
-<h1>📄 退職金 税金計算アプリ</h1>
-<p class="app-subtitle">条件を入力してレポートを生成 → PDF / PNG でダウンロード</p>
+<h1>退職金手取り計算</h1>
 
 <div class="layout">
 
@@ -367,13 +424,17 @@
     <h2>条件を入力</h2>
 
     <div class="field">
-      <label>退職金額（円）</label>
-      <input type="number" id="amount" placeholder="例: 10000000" value="10000000" min="0" step="1">
+      <label>退職金額</label>
+      <div class="input-unit" data-unit="円">
+        <input type="text" id="amount" placeholder="例: 10,000,000" value="10,000,000" inputmode="numeric">
+      </div>
     </div>
 
     <div class="field">
-      <label>勤続年数（年）</label>
-      <input type="number" id="years" placeholder="例: 3" value="3" min="1" max="60" step="1">
+      <label>勤続年数</label>
+      <div class="input-unit" data-unit="年">
+        <input type="number" id="years" placeholder="例: 3" value="3" min="1" max="60" step="1">
+      </div>
       <div class="hint">端数は切り上げてください（例：6年3ヶ月 → 7年）</div>
     </div>
 
@@ -442,7 +503,7 @@
     const errEl = document.getElementById('errMsg');
     errEl.style.display = 'none';
 
-    const amount = parseFloat(document.getElementById('amount').value);
+    const amount = parseFloat(document.getElementById('amount').value.replace(/,/g, ''));
     const years  = parseInt(document.getElementById('years').value);
     const disability = document.getElementById('disability').checked;
 
@@ -510,8 +571,8 @@
     const html = `
     <div id="report">
       <div class="report-header">
-        <div class="rh-subtitle">退職金 税金計算レポート</div>
-        <div class="rh-amount">¥${Math.round(d.amount).toLocaleString()}</div>
+        <div class="rh-subtitle">退職金手取り計算レポート</div>
+        <div class="rh-amount">¥${Math.round(d.amount).toLocaleString()}　<span style="font-size: 22px; font-weight: 600; opacity: 0.85;">→　税金 ¥${Math.round(d.totalTax).toLocaleString()}　手取り ¥${Math.round(d.netAmount).toLocaleString()}</span></div>
         <div class="rh-meta">
           <span class="rh-tag">📅 勤続年数：${d.years}年</span>
           <span class="rh-tag">📆 ${now}</span>
@@ -579,14 +640,15 @@
           </tbody>
         </table>
 
-        <div class="summary-boxes">
-          <div class="sbox tax">
-            <div class="sbl">税金合計</div>
-            <div class="sba">¥${Math.round(d.totalTax).toLocaleString()}</div>
+        <div class="bar-chart">
+          <div style="text-align: center; font-size: 16px; font-weight: 700; color: #1a3a5c; margin-bottom: 10px;">退職金総額 ¥${Math.round(d.amount).toLocaleString()}</div>
+          <div class="bar-track">
+            <div class="bar-net" style="width: ${(d.netAmount / d.amount * 100).toFixed(1)}%">${(d.netAmount / d.amount * 100).toFixed(1)}%</div>
+            <div class="bar-tax" style="width: ${(d.totalTax / d.amount * 100).toFixed(1)}%">${(d.totalTax / d.amount * 100).toFixed(1)}%</div>
           </div>
-          <div class="sbox net">
-            <div class="sbl">手取り額（概算）</div>
-            <div class="sba">¥${Math.round(d.netAmount).toLocaleString()}</div>
+          <div class="bar-legend">
+            <span style="color: #276749; font-weight: 700;">手取り ¥${Math.round(d.netAmount).toLocaleString()}</span>
+            <span style="color: #c53030; font-weight: 700;">税金 ¥${Math.round(d.totalTax).toLocaleString()}</span>
           </div>
         </div>
 
@@ -646,6 +708,18 @@
       btn.disabled = false;
     }
   }
+
+  // 退職金額のカンマ区切り表示
+  const amountInput = document.getElementById('amount');
+  amountInput.addEventListener('focus', function() {
+    this.value = this.value.replace(/,/g, '');
+  });
+  amountInput.addEventListener('blur', function() {
+    const num = parseFloat(this.value.replace(/,/g, ''));
+    if (!isNaN(num)) {
+      this.value = num.toLocaleString('ja-JP');
+    }
+  });
 
   // 初回レンダリング
   calculate();
