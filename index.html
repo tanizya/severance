@@ -229,11 +229,26 @@
       text-transform: uppercase;
       margin-bottom: 4px;
     }
-    .report-header .rh-amount {
-      font-size: 32px;
-      font-weight: 800;
-      letter-spacing: 0.02em;
+    .rh-rows {
       margin-bottom: 10px;
+    }
+    .rh-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-size: 22px;
+      font-weight: 700;
+      line-height: 1.6;
+    }
+    .rh-row:first-child {
+      font-size: 28px;
+      font-weight: 800;
+    }
+    .rh-label {
+      opacity: 0.8;
+    }
+    .rh-value {
+      text-align: right;
     }
     .report-header .rh-meta {
       display: flex;
@@ -572,7 +587,11 @@
     <div id="report">
       <div class="report-header">
         <div class="rh-subtitle">退職金手取り計算レポート</div>
-        <div class="rh-amount">¥${Math.round(d.amount).toLocaleString()}　<span style="font-size: 22px; font-weight: 600; opacity: 0.85;">→　税金 ¥${Math.round(d.totalTax).toLocaleString()}　手取り ¥${Math.round(d.netAmount).toLocaleString()}</span></div>
+        <div class="rh-rows">
+          <div class="rh-row"><span class="rh-label">退職金</span><span class="rh-value">¥${Math.round(d.amount).toLocaleString()}</span></div>
+          <div class="rh-row"><span class="rh-label">税金</span><span class="rh-value">¥${Math.round(d.totalTax).toLocaleString()}</span></div>
+          <div class="rh-row"><span class="rh-label">手取り</span><span class="rh-value">¥${Math.round(d.netAmount).toLocaleString()}</span></div>
+        </div>
         <div class="rh-meta">
           <span class="rh-tag">📅 勤続年数：${d.years}年</span>
           <span class="rh-tag">📆 ${now}</span>
