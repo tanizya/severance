@@ -26,10 +26,6 @@
       margin-bottom: 24px;
       letter-spacing: 0.04em;
     }
-    .app-subtitle {
-      font-size: 13px;
-      color: #718096;
-    }
 
     .layout {
       display: flex;
@@ -111,6 +107,10 @@
       justify-content: space-between;
       margin-bottom: 20px;
     }
+    .toggle-row-summary {
+      margin-top: 16px;
+      margin-bottom: 0;
+    }
     .toggle-row label {
       font-size: 13px;
       font-weight: 600;
@@ -179,10 +179,12 @@
     .export-bar {
       display: flex;
       gap: 10px;
+      margin-top: 16px;
       margin-bottom: 16px;
       justify-content: flex-end;
     }
     .export-btn {
+      flex: 1;
       padding: 9px 18px;
       border-radius: 8px;
       font-size: 13px;
@@ -330,32 +332,19 @@
     }
     .td-right { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
-    .summary-boxes {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      margin-top: 20px;
-    }
-    .sbox {
-      border-radius: 10px;
-      padding: 14px 20px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .sbox.tax { background: #fff0f0; border: 1px solid #ffc5c5; }
-    .sbox.net { background: #f0fff5; border: 1px solid #9ae6b4; }
-    .sbox .sbl { font-size: 13px; font-weight: 600; color: #718096; }
-    .sbox .sba { font-size: 24px; font-weight: 800; }
-    .sbox.tax .sba { color: #c53030; }
-    .sbox.net .sba { color: #276749; }
-
     .bar-chart {
       margin-top: 16px;
       background: #f7fafd;
       border-radius: 10px;
       border: 1px solid #d8e8f5;
       padding: 16px 20px;
+    }
+    .bar-title {
+      text-align: center;
+      font-size: 16px;
+      font-weight: 700;
+      color: #1a3a5c;
+      margin-bottom: 10px;
     }
     .bar-chart .bar-track {
       display: flex;
@@ -394,6 +383,14 @@
       margin-top: 8px;
       font-size: 16px;
       color: #718096;
+    }
+    .bar-legend-net {
+      color: #276749;
+      font-weight: 700;
+    }
+    .bar-legend-tax {
+      color: #c53030;
+      font-weight: 700;
     }
 
     .collapsible.hidden, .notice-box.hidden {
@@ -437,7 +434,6 @@
       .layout { flex-direction: column; }
       .input-panel { width: 100%; position: static; }
       .steps-grid { grid-template-columns: 1fr; }
-      .summary-boxes { gap: 8px; }
     }
   </style>
 </head>
@@ -477,12 +473,12 @@
     <button class="calc-btn" onclick="calculate()">計算してレポート生成</button>
     <div class="error-msg" id="errMsg"></div>
 
-    <div class="export-bar" style="margin-top: 16px;">
-      <button class="export-btn pdf" id="btnPdf" onclick="exportPDF()" disabled style="flex: 1;">📄 PDF 保存</button>
-      <button class="export-btn png" id="btnPng" onclick="exportPNG()" disabled style="flex: 1;">🖼️ PNG 保存</button>
+    <div class="export-bar">
+      <button class="export-btn pdf" id="btnPdf" onclick="exportPDF()" disabled>📄 PDF 保存</button>
+      <button class="export-btn png" id="btnPng" onclick="exportPNG()" disabled>🖼️ PNG 保存</button>
     </div>
 
-    <div class="toggle-row" style="margin-top: 16px; margin-bottom: 0;">
+    <div class="toggle-row toggle-row-summary">
       <label>スクショ用サマリ📸</label>
       <label class="toggle">
         <input type="checkbox" id="summaryMode" onchange="toggleSummary()">
@@ -505,6 +501,15 @@
 </div>
 
 <script>
+  // ===== 定数 =====
+  const DEDUCTION_PER_YEAR_SHORT = 400_000;
+  const DEDUCTION_BASE_LONG = 8_000_000;
+  const DEDUCTION_PER_YEAR_LONG = 700_000;
+  const DISABILITY_EXTRA = 1_000_000;
+  const RECONSTRUCTION_TAX_RATE = 0.021;
+  const RESIDENT_TAX_RATE = 0.10;
+  const SHORT_SERVICE_THRESHOLD = 20;
+
   // ===== 税率表（所得税・分離課税）=====
   const TAX_BRACKETS = [
     { limit: 1_950_000,   rate: 0.05,  deduction:       0 },
@@ -516,19 +521,29 @@
     { limit: Infinity,    rate: 0.45,  deduction: 4_796_000 },
   ];
 
-  function calcIncomeTax(taxableIncome) {
+  // ===== DOM要素のキャッシュ =====
+  const els = {
+    amount: document.getElementById('amount'),
+    years: document.getElementById('years'),
+    disability: document.getElementById('disability'),
+    errMsg: document.getElementById('errMsg'),
+    reportWrap: document.getElementById('reportWrap'),
+    btnPdf: document.getElementById('btnPdf'),
+    btnPng: document.getElementById('btnPng'),
+    summaryMode: document.getElementById('summaryMode'),
+  };
+
+  // ===== 税額計算（所得税 + 適用税率） =====
+  function calcTax(taxableIncome) {
     for (const b of TAX_BRACKETS) {
       if (taxableIncome <= b.limit) {
-        return Math.floor(taxableIncome * b.rate - b.deduction);
+        return {
+          tax: Math.floor(taxableIncome * b.rate - b.deduction),
+          bracket: b,
+        };
       }
     }
-    return 0;
-  }
-
-  function getTaxRate(taxableIncome) {
-    for (const b of TAX_BRACKETS) {
-      if (taxableIncome <= b.limit) return b;
-    }
+    return { tax: 0, bracket: null };
   }
 
   function fmt(n) {
@@ -536,50 +551,48 @@
   }
 
   function calculate() {
-    const errEl = document.getElementById('errMsg');
-    errEl.style.display = 'none';
+    els.errMsg.style.display = 'none';
 
-    const amount = parseFloat(document.getElementById('amount').value.replace(/,/g, ''));
-    const years  = parseInt(document.getElementById('years').value);
-    const disability = document.getElementById('disability').checked;
+    const amount = parseFloat(els.amount.value.replace(/,/g, ''));
+    const years  = parseInt(els.years.value);
+    const disability = els.disability.checked;
 
     if (!amount || amount <= 0) { showErr('退職金額を入力してください'); return; }
     if (!years  || years  <= 0) { showErr('勤続年数を入力してください'); return; }
 
     // ① 退職所得控除
     let deduction;
-    if (years <= 20) {
-      deduction = 400_000 * years;
+    if (years <= SHORT_SERVICE_THRESHOLD) {
+      deduction = DEDUCTION_PER_YEAR_SHORT * years;
     } else {
-      deduction = 8_000_000 + 700_000 * (years - 20);
+      deduction = DEDUCTION_BASE_LONG + DEDUCTION_PER_YEAR_LONG * (years - SHORT_SERVICE_THRESHOLD);
     }
-    if (disability) deduction += 1_000_000;
+    if (disability) deduction += DISABILITY_EXTRA;
 
     // ② 課税退職所得（千円未満切り捨て）
     const rawTaxable = (amount - deduction) / 2;
     const taxableIncome = rawTaxable <= 0 ? 0 : Math.floor(rawTaxable / 1000) * 1000;
 
-    // ③ 所得税
-    const incomeTax = taxableIncome > 0 ? calcIncomeTax(taxableIncome) : 0;
+    // ③ 所得税 + 適用税率
+    const { tax: incomeTax, bracket } = taxableIncome > 0 ? calcTax(taxableIncome) : { tax: 0, bracket: null };
 
     // ④ 復興特別所得税
-    const reconstructionTax = Math.floor(incomeTax * 0.021);
+    const reconstructionTax = Math.floor(incomeTax * RECONSTRUCTION_TAX_RATE);
 
     // ⑤ 住民税
-    const residentTax = Math.floor(taxableIncome * 0.10);
+    const residentTax = Math.floor(taxableIncome * RESIDENT_TAX_RATE);
 
     // 合計
     const totalTax  = incomeTax + reconstructionTax + residentTax;
     const netAmount = amount - totalTax;
 
     // 税率情報
-    const bracket = getTaxRate(taxableIncome);
     const rateLabel = taxableIncome > 0
       ? `${(bracket.rate * 100).toFixed(0)}%（控除額 ${bracket.deduction.toLocaleString()}円）`
       : '課税なし';
 
     // 控除方式
-    let deductionFormula = years <= 20
+    let deductionFormula = years <= SHORT_SERVICE_THRESHOLD
       ? `40万円 × ${years}年 ${disability ? '+ 100万円（障害）' : ''}`
       : `800万円 + 70万円 × (${years}年 - 20年) ${disability ? '+ 100万円（障害）' : ''}`;
 
@@ -592,20 +605,14 @@
   }
 
   function showErr(msg) {
-    const el = document.getElementById('errMsg');
-    el.textContent = msg;
-    el.style.display = 'block';
+    els.errMsg.textContent = msg;
+    els.errMsg.style.display = 'block';
   }
 
-  function renderReport(d) {
-    const now = new Date().toLocaleDateString('ja-JP', { year:'numeric', month:'long', day:'numeric' });
+  // ===== レポートテンプレート =====
+  function buildHeader(d, now) {
     const disabilityTag = d.disability ? '<span class="rh-tag">⚠️ 障害退職</span>' : '';
-    const taxFreeNote = d.taxableIncome <= 0
-      ? '<p style="color:#276749;font-weight:700;font-size:14px;margin-top:8px;">✅ 退職所得控除の範囲内のため、所得税・住民税ともに課税なし</p>'
-      : '';
-
-    const html = `
-    <div id="report">
+    return `
       <div class="report-header">
         <div class="rh-subtitle">退職金手取り計算レポート</div>
         <div class="rh-rows">
@@ -619,12 +626,11 @@
           ${disabilityTag}
           <span class="rh-tag">📌 参照：国税庁 nta.go.jp</span>
         </div>
-      </div>
+      </div>`;
+  }
 
-      <div class="report-body">
-        ${taxFreeNote}
-
-        <div class="collapsible">
+  function buildSteps(d) {
+    return `
         <div class="sec-title">STEP BY STEP　計算過程</div>
         <div class="steps-grid">
           <div class="step-box">
@@ -647,8 +653,11 @@
             <div class="sf">${Math.round(d.incomeTax).toLocaleString()} × 2.1%<br>所得税＋復興税 合計</div>
             <div class="sr">= ${fmt(d.incomeTax + d.reconstructionTax)}</div>
           </div>
-        </div>
+        </div>`;
+  }
 
+  function buildTaxTable(d) {
+    return `
         <div class="sec-title">税額内訳</div>
         <table class="tax-table">
           <thead>
@@ -679,67 +688,93 @@
               <td class="td-right">${fmt(d.totalTax)}</td>
             </tr>
           </tbody>
-        </table>
+        </table>`;
+  }
 
-        </div>
-
+  function buildBarChart(d) {
+    const netPct = (d.netAmount / d.amount * 100).toFixed(1);
+    const taxPct = (d.totalTax / d.amount * 100).toFixed(1);
+    return `
         <div class="bar-chart">
-          <div style="text-align: center; font-size: 16px; font-weight: 700; color: #1a3a5c; margin-bottom: 10px;">退職金総額 ¥${Math.round(d.amount).toLocaleString()}</div>
+          <div class="bar-title">退職金総額 ¥${Math.round(d.amount).toLocaleString()}</div>
           <div class="bar-track">
-            <div class="bar-net" style="width: ${(d.netAmount / d.amount * 100).toFixed(1)}%">${(d.netAmount / d.amount * 100).toFixed(1)}%</div>
-            <div class="bar-tax" style="width: ${(d.totalTax / d.amount * 100).toFixed(1)}%">${(d.totalTax / d.amount * 100).toFixed(1)}%</div>
+            <div class="bar-net" style="width: ${netPct}%">${netPct}%</div>
+            <div class="bar-tax" style="width: ${taxPct}%">${taxPct}%</div>
           </div>
           <div class="bar-legend">
-            <span style="color: #276749; font-weight: 700;">手取り ¥${Math.round(d.netAmount).toLocaleString()}</span>
-            <span style="color: #c53030; font-weight: 700;">税金 ¥${Math.round(d.totalTax).toLocaleString()}</span>
+            <span class="bar-legend-net">手取り ¥${Math.round(d.netAmount).toLocaleString()}</span>
+            <span class="bar-legend-tax">税金 ¥${Math.round(d.totalTax).toLocaleString()}</span>
           </div>
-        </div>
+        </div>`;
+  }
 
+  function buildNotice() {
+    return `
         <div class="notice-box">
           <strong>📋 納付方法</strong>　退職金受取前に勤務先へ「退職所得の受給に関する申告書」を提出すれば、所得税・住民税ともに勤務先が源泉徴収・特別徴収して納付するため、<strong>原則として確定申告は不要</strong>です。申告書を未提出の場合は一律20.42%で源泉徴収されるため、確定申告で精算が必要になります。<br>
           <strong>⚠️ 注意</strong>　勤続年数の端数は切り上げ。本計算はあくまで概算です。正確な税額は税理士または所轄の税務署にご確認ください。
+        </div>`;
+  }
+
+  function renderReport(d) {
+    const now = new Date().toLocaleDateString('ja-JP', { year:'numeric', month:'long', day:'numeric' });
+    const taxFreeNote = d.taxableIncome <= 0
+      ? '<p style="color:#276749;font-weight:700;font-size:14px;margin-top:8px;">✅ 退職所得控除の範囲内のため、所得税・住民税ともに課税なし</p>'
+      : '';
+
+    const html = `
+    <div id="report">
+      ${buildHeader(d, now)}
+      <div class="report-body">
+        ${taxFreeNote}
+        <div class="collapsible">
+        ${buildSteps(d)}
+        ${buildTaxTable(d)}
         </div>
+        ${buildBarChart(d)}
+        ${buildNotice()}
       </div>
       <div class="report-footer">参照：国税庁「暮らしの税情報」退職金にかかる税金 https://www.nta.go.jp/</div>
     </div>`;
 
-    document.getElementById('reportWrap').innerHTML = html;
-    document.getElementById('btnPdf').disabled = false;
-    document.getElementById('btnPng').disabled = false;
+    els.reportWrap.innerHTML = html;
+    els.btnPdf.disabled = false;
+    els.btnPng.disabled = false;
   }
 
   // ===== EXPORT =====
-  async function exportPNG() {
+  async function captureReport() {
     const el = document.getElementById('report');
-    if (!el) return;
-    const btn = document.getElementById('btnPng');
-    btn.textContent = '⏳ 生成中...';
-    btn.disabled = true;
+    if (!el) return null;
+    return html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+  }
+
+  async function exportPNG() {
+    els.btnPng.textContent = '⏳ 生成中...';
+    els.btnPng.disabled = true;
     try {
-      const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+      const canvas = await captureReport();
+      if (!canvas) return;
       const link = document.createElement('a');
       link.download = 'retirement_tax_report.png';
       link.href = canvas.toDataURL('image/png');
       link.click();
     } finally {
-      btn.textContent = '🖼️ PNG 保存';
-      btn.disabled = false;
+      els.btnPng.textContent = '🖼️ PNG 保存';
+      els.btnPng.disabled = false;
     }
   }
 
   async function exportPDF() {
-    const el = document.getElementById('report');
-    if (!el) return;
-    const btn = document.getElementById('btnPdf');
-    btn.textContent = '⏳ 生成中...';
-    btn.disabled = true;
+    els.btnPdf.textContent = '⏳ 生成中...';
+    els.btnPdf.disabled = true;
     try {
-      const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+      const canvas = await captureReport();
+      if (!canvas) return;
       const imgData = canvas.toDataURL('image/png');
       const { jsPDF } = window.jspdf;
       const pxW = canvas.width;
       const pxH = canvas.height;
-      // A4 width = 210mm, convert px to mm at 96dpi*2
       const mmW = 210;
       const mmH = (pxH / pxW) * mmW;
       const orient = mmH > mmW ? 'p' : 'l';
@@ -747,25 +782,24 @@
       pdf.addImage(imgData, 'PNG', 0, 0, mmW, mmH);
       pdf.save('retirement_tax_report.pdf');
     } finally {
-      btn.textContent = '📄 PDF 保存';
-      btn.disabled = false;
+      els.btnPdf.textContent = '📄 PDF 保存';
+      els.btnPdf.disabled = false;
     }
   }
 
   // スクショ用サマリモード
   function toggleSummary() {
-    const on = document.getElementById('summaryMode').checked;
+    const on = els.summaryMode.checked;
     document.querySelectorAll('.collapsible, .notice-box').forEach(el => {
       el.classList.toggle('hidden', on);
     });
   }
 
   // 退職金額のカンマ区切り表示
-  const amountInput = document.getElementById('amount');
-  amountInput.addEventListener('focus', function() {
+  els.amount.addEventListener('focus', function() {
     this.value = this.value.replace(/,/g, '');
   });
-  amountInput.addEventListener('blur', function() {
+  els.amount.addEventListener('blur', function() {
     const num = parseFloat(this.value.replace(/,/g, ''));
     if (!isNaN(num)) {
       this.value = num.toLocaleString('ja-JP');
