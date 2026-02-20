@@ -396,6 +396,10 @@
       color: #718096;
     }
 
+    .collapsible.hidden, .notice-box.hidden {
+      display: none;
+    }
+
     .notice-box {
       margin-top: 20px;
       background: #fffbea;
@@ -476,6 +480,14 @@
     <div class="export-bar" style="margin-top: 16px;">
       <button class="export-btn pdf" id="btnPdf" onclick="exportPDF()" disabled style="flex: 1;">📄 PDF 保存</button>
       <button class="export-btn png" id="btnPng" onclick="exportPNG()" disabled style="flex: 1;">🖼️ PNG 保存</button>
+    </div>
+
+    <div class="toggle-row" style="margin-top: 16px; margin-bottom: 0;">
+      <label>スクショ用サマリ📸</label>
+      <label class="toggle">
+        <input type="checkbox" id="summaryMode" onchange="toggleSummary()">
+        <span class="toggle-slider"></span>
+      </label>
     </div>
   </div>
 
@@ -612,6 +624,7 @@
       <div class="report-body">
         ${taxFreeNote}
 
+        <div class="collapsible">
         <div class="sec-title">STEP BY STEP　計算過程</div>
         <div class="steps-grid">
           <div class="step-box">
@@ -667,6 +680,8 @@
             </tr>
           </tbody>
         </table>
+
+        </div>
 
         <div class="bar-chart">
           <div style="text-align: center; font-size: 16px; font-weight: 700; color: #1a3a5c; margin-bottom: 10px;">退職金総額 ¥${Math.round(d.amount).toLocaleString()}</div>
@@ -735,6 +750,14 @@
       btn.textContent = '📄 PDF 保存';
       btn.disabled = false;
     }
+  }
+
+  // スクショ用サマリモード
+  function toggleSummary() {
+    const on = document.getElementById('summaryMode').checked;
+    document.querySelectorAll('.collapsible, .notice-box').forEach(el => {
+      el.classList.toggle('hidden', on);
+    });
   }
 
   // 退職金額のカンマ区切り表示
