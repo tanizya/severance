@@ -4,8 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>退職金手取り計算</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -742,13 +741,31 @@
     els.btnPng.disabled = false;
   }
 
-  // ===== EXPORT =====
+  // ===== ライブラリ遅延読み込み =====
+  const LIB_URLS = {
+    html2canvas: 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
+    jspdf: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+  };
+
+  function loadScript(url) {
+    if (document.querySelector(`script[src="${url}"]`)) return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = url;
+      s.onload = resolve;
+      s.onerror = () => reject(new Error(`Failed to load ${url}`));
+      document.head.appendChild(s);
+    });
+  }
+
   async function captureReport() {
+    await loadScript(LIB_URLS.html2canvas);
     const el = document.getElementById('report');
     if (!el) return null;
     return html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
   }
 
+  // ===== EXPORT =====
   async function exportPNG() {
     els.btnPng.textContent = '⏳ 生成中...';
     els.btnPng.disabled = true;
@@ -769,6 +786,7 @@
     els.btnPdf.textContent = '⏳ 生成中...';
     els.btnPdf.disabled = true;
     try {
+      await loadScript(LIB_URLS.jspdf);
       const canvas = await captureReport();
       if (!canvas) return;
       const imgData = canvas.toDataURL('image/png');
